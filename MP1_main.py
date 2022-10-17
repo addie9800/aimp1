@@ -5,8 +5,10 @@
 
 #%% Importation of the libraries ----------------------------------------------
 import json
+from nltk import download
 from MP1_Library import MP1 
 import datetime
+download('punkt')
 
 #%% load data -----------------------------------------------------------------
 #load the data
@@ -15,8 +17,13 @@ import datetime
 with open('goemotions.json') as file:
     data = json.load(file)
 
-type_vectorize = "TFIDF"
-mp1 = MP1(data, type_vectorize)
+#Choose among thses models for the Word embeddings method:
+#model = "word2vec-google-news-300"
+model = "glove-twitter-100"
+# model = "glove-wiki-gigaword-200"
+
+type_vectorize = "WE" # You can choose between "WE", "TFIDF" and "CV"
+mp1 = MP1(data, type_vectorize, model)
 print(mp1)
 mp1.displaydict()
 #%% Data plot -----------------------------------------------------------------
@@ -25,7 +32,6 @@ mp1.show_data_pie()
 mp1.show_data_bar()
 
 #%% Multinomial Naive Bayes Classifier (default paramters)  -------------------
-
 file_name_MNB = "performance_MNB"
 
 reviewFile_MNB = open(file_name_MNB + ".txt", "a")
@@ -112,3 +118,4 @@ mp1.analysis(conf_matrix_emo_Top_MLP, report_emo_Top_MLP, file_name_Top_MLP,  re
 reviewFile_Top_MLP.write("Multi-Layered Perceptron Classifier (top paramters) trained on sentiments: \n\n")
 mp1.analysis(conf_matrix_sen_Top_MLP, report_sen_Top_MLP, file_name_Top_MLP,  reviewFile_Top_MLP)
 reviewFile_Top_MLP.close()
+
