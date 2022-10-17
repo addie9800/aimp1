@@ -3,7 +3,6 @@
 # =============================================================================
 
 #%% Importation of the libraries ----------------------------------------------
-import json
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
@@ -14,34 +13,46 @@ from sklearn.neural_network import MLPClassifier
 from sklearn import preprocessing
 from sklearn.metrics import f1_score, confusion_matrix, classification_report
 import pandas as pd
-import datetime
-
+from nltk import word_tokenize
+from tqdm import tqdm
+import string
+import copy
+from gensim import downloader
 #%% Class for the Mini Project one --------------------------------------------
 
 class MP1:
     ''' This class will contain methods for solving the Mini Project 1 in
     Artificial Intelligence'''
     
-    def __init__(self, data = list(), type_vectorize = "CV"):
+    def __init__(self, data = list(), type_vectorize = "CV", model = "word2vec-google-news-300"):
         self.data = data
         self.type_vectorize = type_vectorize
+        self.model = model
         if not isinstance(data, list):
             raise TypeError("Second argument of TypedList must "
                   "be a list.")
         if not isinstance(type_vectorize, str):
             raise TypeError("Second argument of TypedList must "
                       "be a string.")
-        if type_vectorize not in ["CV", "TFIDF"]:
-            raise TypeError("You must inter either CV or TFIDF")
+        if not isinstance(model, str):
+            raise TypeError("Second argument of TypedList must "
+                  "be a string.")
+        if type_vectorize not in ["CV", "TFIDF", "WE"]:
+            raise TypeError("You must inter either CV, TFIDF or WE")
     
     def __str__(self):
         X = MP1.__feature_extraction(self)[0]
         out = ""
         if self.type_vectorize == "CV":
             out += "You will use the CountVectorize method for making the posts numerical\n"
+            out += "The size of the vocabulary is: {}".format(X.shape[1])
+        elif self.type_vectorize == "TFIDF":
+            out += "You will use the TfidfTransformer method for making the posts numerical\n"
+            out += "The size of the vocabulary is: {}".format(X.shape[1])
         else:
-            out+= "You will use the TfidfTransformer method for making the posts numerical\n"
-        out += "The size of the vocabulary is: {}".format(X.shape[1])
+            out += "You will use the WordEmbeddings method for making the posts numerical\n"
+            out += "you will use the model: " + self.model + " for embedding words"
+        
         
         return out
     
@@ -121,7 +132,6 @@ class MP1:
         #We split the data into 80% for training and 20% for testing
         X_train_emo, X_test_emo, y_train_emo, y_test_emo = train_test_split(X,y_emo, test_size = 0.2, random_state=0)
         X_train_sen, X_test_sen, y_train_sen, y_test_sen = train_test_split(X,y_sen, test_size = 0.2, random_state=0)
-        print(X_train_emo.shape)
         return X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen, le_dict_emo, le_dict_sen
 
     def __feature_extraction_TFIDF(self):
@@ -148,32 +158,72 @@ class MP1:
         return X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen, le_dict_emo, le_dict_sen
 
     def __feature_extraction_WE(self):
-        list_all_emotions, list_all_sentiments = MP1.extract_features(self)[3:]
-        posts = np.array([i[0] for i in self.data])
-        le_sen = preprocessing.LabelEncoder()
-        y_sen = le_sen.fit_transform(list_all_sentiments)
-        le_dict_sen = dict(zip(le_sen.classes_, le_sen.transform(le_sen.classes_)))
+        print("Downloading the model, might take few minutes... ")
+        model = downloader.load(self.model)
+        training_set_size = 0.8
+        length = round(training_set_size * len(self.data))
+        content_array = np.array(self.data)
+        np.random.shuffle(content_array)
+        content_training = content_array[:length]
+        content_test = content_array[length:]
+
+        # Tokenize using nltk package
+
+        tokens_training = list()
+        emotions_training = list()
+        sentiments_training = list()
+        number_tokens_training = 0
+        for item in tqdm(content_training):
+            temp = word_tokenize(item[0])
+            tokens_training.append(np.array(temp))
+            emotions_training.append(item[1])
+            sentiments_training.append(item[2])
+            number_tokens_training += len(temp)
+        print("The number of tokens in the training set is: " + str(number_tokens_training))
+        tokens_test = list()
+        emotions_test = list()
+        sentiments_test = list()
+        for item in tqdm(content_test):
+            temp = word_tokenize(item[0])
+            tokens_test.append(np.array(temp))
+            emotions_test.append(item[1])
+            sentiments_test.append(item[2])
+
+        # Calculate the hit and miss rate in the training set EXCLUDING punctuation and calculate the embeddings of each post as the average of the embeddings of each word
+
+        averaged_list = list()
+        total_count = 0
+        hit_count = 0
+        for post in tqdm(tokens_training):
+            averaged_list.append(model.get_mean_vector(post, pre_normalize=True, post_normalize=False, ignore_missing=True))
+            for word in post:
+                if word in string.punctuation:
+                    continue
+                total_count += 1
+                if model.__contains__(word):
+                    hit_count += 1
+        print("The hit-rate of the training set is " + str(hit_count/total_count) + " the miss-rate is " + str((total_count - hit_count)/total_count))
+
+        #Calculate the embeddings fo each post as the average og the embeddings in each word in the test set
+
+        averaged_list_test = list()
+        for post in tqdm(tokens_test):
+            averaged_list_test.append(model.get_mean_vector(post, pre_normalize=True, post_normalize=False, ignore_missing=True))
+        averaged_array_test = np.array(averaged_list_test)
+
+        # Train and analyze models
+        averaged_array = np.array(averaged_list)
         
-        le_emo = preprocessing.LabelEncoder()
-        y_emo = le_emo.fit_transform(list_all_emotions)
-        le_dict_emo = dict(zip(le_emo.classes_, le_emo.transform(le_emo.classes_)))
-        
-        vectorizer = CountVectorizer()
-        X = vectorizer.fit_transform(posts)
-        
-        size_vocabulary = len(vectorizer.get_feature_names()) # there are 30449 words in our vocabulary
-        
-        #We split the data into 80% for training and 20% for testing
-        X_train_emo, X_test_emo, y_train_emo, y_test_emo = train_test_split(X,y_emo, test_size = 0.2, random_state=0)
-        X_train_sen, X_test_sen, y_train_sen, y_test_sen = train_test_split(X,y_sen, test_size = 0.2, random_state=0)
-        return X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen, le_dict_emo, le_dict_sen
+        return averaged_array, averaged_array_test, np.array(emotions_training), np.array(emotions_test), np.array(sentiments_training), np.array(sentiments_test)
     
     def MNB(self):
         #Training part of the model with the Multinomial Naive Bayes classification. 
         if self.type_vectorize == "CV":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction(self)[:8]
-        else:
+        elif self.type_vectorize == "TFIDF":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction_TFIDF(self)[:8]
+        else:
+            raise ValueError("This method works only with CountVectorize (CV) and TfidfTransformer (TFIDF)")
         
         clf_MNB_emo = MultinomialNB()
         clf_MNB_sen = MultinomialNB()
@@ -200,9 +250,11 @@ class MP1:
         #Training part of the model with the Multinomial Naive Bayes classification. 
         if self.type_vectorize == "CV":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction(self)[:8]
-        else:
+        elif self.type_vectorize == "TFIDF":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction_TFIDF(self)[:8]
-        
+        else:
+            raise ValueError("This method works only with CountVectorize (CV) and TfidfTransformer (TFIDF)")
+            
         clf_MNB_emo = MultinomialNB()
         clf_MNB_sen = MultinomialNB()
 
@@ -232,8 +284,13 @@ class MP1:
     def DT(self):
         if self.type_vectorize == "CV":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction(self)[:8]
-        else:
+        elif self.type_vectorize == "TFIDF":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction_TFIDF(self)[:8]
+        else:
+            X_train_emo, X_test_emo, y_train_emo, y_test_emo, y_train_sen, y_test_sen = MP1.__feature_extraction_WE(self)
+            X_train_sen = copy.deepcopy(X_train_emo)
+            X_test_sen = copy.deepcopy(X_test_emo)
+            
         # Create Decision Tree classifer object
         clf_tree_emo = DecisionTreeClassifier()
         clf_tree_sen = DecisionTreeClassifier()
@@ -261,8 +318,13 @@ class MP1:
     def Top_DT(self):
         if self.type_vectorize == "CV":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction(self)[:8]
-        else:
+        elif self.type_vectorize == "TFIDF":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction_TFIDF(self)[:8]
+        else:
+            X_train_emo, X_test_emo, y_train_emo, y_test_emo, y_train_sen, y_test_sen = MP1.__feature_extraction_WE(self)
+            X_train_sen = copy.deepcopy(X_train_emo)
+            X_test_sen = copy.deepcopy(X_test_emo)
+            
         # Create Decision Tree classifer object
         clf_tree_emo = DecisionTreeClassifier()
         clf_tree_sen = DecisionTreeClassifier()
@@ -291,13 +353,19 @@ class MP1:
         return conf_matrix_emo, conf_matrix_sen, report_emo, report_sen, grid_emo.best_params_, grid_sen.best_params_
     
     def MLP(self):
+        global  X_train_emo, X_test_emo, y_train_emo, y_test_emo, y_train_sen, y_test_sen
         if self.type_vectorize == "CV":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction(self)[:8]
-        else:
+        elif self.type_vectorize == "TFIDF":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction_TFIDF(self)[:8]
+        else:
+            X_train_emo, X_test_emo, y_train_emo, y_test_emo, y_train_sen, y_test_sen = MP1.__feature_extraction_WE(self)
+            X_train_sen = copy.deepcopy(X_train_emo)
+            X_test_sen = copy.deepcopy(X_test_emo)
+        
         # Create Neural Network classifer object
-        clf_MLP_emo = MLPClassifier()
-        clf_MLP_sen = MLPClassifier()
+        clf_MLP_emo = MLPClassifier(max_iter = 20)
+        clf_MLP_sen = MLPClassifier(max_iter = 20)
 
         clf_MLP_emo = clf_MLP_emo.fit(X_train_emo,y_train_emo)
         clf_MLP_sen = clf_MLP_sen.fit(X_train_sen,y_train_sen)
@@ -322,11 +390,16 @@ class MP1:
     def Top_MLP(self):
         if self.type_vectorize == "CV":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction(self)[:8]
-        else:
+        elif self.type_vectorize == "TFIDF":
             X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen = MP1.__feature_extraction_TFIDF(self)[:8]
+        else:
+            X_train_emo, X_test_emo, y_train_emo, y_test_emo, y_train_sen, y_test_sen = MP1.__feature_extraction_WE(self)
+            X_train_sen = copy.deepcopy(X_train_emo)
+            X_test_sen = copy.deepcopy(X_test_emo)
+            
         # Create Neural Network classifer object
-        clf_MLP_emo = MLPClassifier()
-        clf_MLP_sen = MLPClassifier()
+        clf_MLP_emo = MLPClassifier(max_iter = 20)
+        clf_MLP_sen = MLPClassifier(max_iter = 20)
 
         parameters = {'activation':['sigmoid', 'tanh', 'relu', 'identity'], 'solver':['adam', 'sgd'], 
                       'hidden_layer_sizes':[(30,50),(10,10,10)]}
@@ -356,11 +429,15 @@ class MP1:
     def displaydict(self):
         if self.type_vectorize == "CV":
             le_dict_emo, le_dict_sen = MP1.__feature_extraction(self)[8:]
-        else:
+            print("Dictionnary of the correponding numbers and emotions: \n {} \n".format(le_dict_emo))
+            print("Dictionnary of the correponding numbers and sentiments: \n {} \n".format(le_dict_sen))
+        elif self.type_vectorize == "TFIDF":
             le_dict_emo, le_dict_sen = MP1.__feature_extraction_TFIDF(self)[8:]
-        
-        print("Dictionnary of the correponding numbers and emotions: \n {} \n".format(le_dict_emo))
-        print("Dictionnary of the correponding numbers and sentiments: \n {} \n".format(le_dict_sen))
+            print("Dictionnary of the correponding numbers and emotions: \n {} \n".format(le_dict_emo))
+            print("Dictionnary of the correponding numbers and sentiments: \n {} \n".format(le_dict_sen))
+        else:
+            print("No need of dictionaries because labels were not encoding")
+
         
     def analysis(self, matrix, report, output_name, reviewFile):
         le_dict_emo, le_dict_sen = MP1.__feature_extraction(self)[8:]
@@ -371,6 +448,5 @@ class MP1:
             mat_sen = pd.DataFrame(matrix, columns = le_dict_sen.keys(), index = le_dict_sen.keys())
             mat_sen.to_csv(output_name + "_conf_sen.csv")
         
-
         reviewFile.write(report)
-
+       
