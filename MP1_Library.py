@@ -328,7 +328,7 @@ class MP1:
         clf_MLP_emo = MLPClassifier()
         clf_MLP_sen = MLPClassifier()
 
-        parameters = {'activation':['sigmoid', 'tanh', 'relu', 'identity'], 'solver':['adam', 'sgd'], 
+        parameters = {'activation':['logistic', 'tanh', 'relu', 'identity'], 'solver':['adam', 'sgd'], 
                       'hidden_layer_sizes':[(30,50),(10,10,10)]}
         
         grid_emo = GridSearchCV(estimator = clf_MLP_emo, param_grid = parameters)
