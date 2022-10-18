@@ -19,8 +19,8 @@ with open('goemotions.json') as file:
 
 #Choose among thses models for the Word embeddings method:
 #model = "word2vec-google-news-300"
-model = "glove-twitter-100"
-# model = "glove-wiki-gigaword-200"
+model = "word2vec-google-news-100"
+# model = "word2vec-google-news-25"
 
 type_vectorize = "WE" # You can choose between "WE", "TFIDF" and "CV"
 mp1 = MP1(data, type_vectorize, model)
