@@ -234,28 +234,46 @@ class MP1:
         return X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen, le_dict_emo, le_dict_sen
 
     def __feature_extraction_WE(self):
+        '''
+        __feature_extraction_WE is a private method that preprocesses the data if type_vectorize='WE' was passed on init. The chosen model is
+        loaded and the averaged embedding vectors are calculated based on the model passed as input.
+        returns:
+            - training numpy array of embeddings
+            - test numpy array of embeddings
+            - training numpy array of emotions
+            - test numpy array of emotions
+            - training numpy array of sentiments
+            - test numpy array of sentiments
+        '''
+        
+        # Set up the model, as defined on initialization, downloads automatically if not present
         print("Downloading the model, might take few minutes... ")
         model = downloader.load(self.model)
+        # custom set of training set size
         training_set_size = 0.8
+        # manual split into training and test set, shufffling the data for better results
         length = round(training_set_size * len(self.data))
         content_array = np.array(self.data)
         np.random.shuffle(content_array)
         content_training = content_array[:length]
         content_test = content_array[length:]
 
-        # Tokenize using nltk package
+        # Tokenize using nltk package, using list for better performance
 
         tokens_training = list()
         emotions_training = list()
         sentiments_training = list()
         number_tokens_training = 0
         for item in tqdm(content_training):
+            # for each item in the training data set split the post into an array, where each element is either a word or punctuation
             temp = word_tokenize(item[0])
             tokens_training.append(np.array(temp))
+            # parallel save the corresponding labels in another array
             emotions_training.append(item[1])
             sentiments_training.append(item[2])
             number_tokens_training += len(temp)
         print("The number of tokens in the training set is: " + str(number_tokens_training))
+        # repeat the process from above for the test set
         tokens_test = list()
         emotions_test = list()
         sentiments_test = list()
@@ -278,16 +296,15 @@ class MP1:
                 total_count += 1
                 if model.__contains__(word):
                     hit_count += 1
+        print("The number of tokens excluding punctuation in the training set is: " + str(total_count))
         print("The hit-rate of the training set is " + str(hit_count/total_count) + " the miss-rate is " + str((total_count - hit_count)/total_count))
 
-        #Calculate the embeddings fo each post as the average og the embeddings in each word in the test set
+        # Calculate the embeddings for each post as the average of the embeddings in each word in the test set
 
         averaged_list_test = list()
         for post in tqdm(tokens_test):
             averaged_list_test.append(model.get_mean_vector(post, pre_normalize=True, post_normalize=False, ignore_missing=True))
         averaged_array_test = np.array(averaged_list_test)
-
-        # Train and analyze models
         averaged_array = np.array(averaged_list)
         
         return averaged_array, averaged_array_test, np.array(emotions_training), np.array(emotions_test), np.array(sentiments_training), np.array(sentiments_test)
@@ -299,7 +316,7 @@ class MP1:
         return:
             - conf_matrix_emo: confusion matrix for emotions.
             - conf_matrix_sen: confusion matrix for sentiments. 
-            - report_emo: object taht contains different evaluation metrics 
+            - report_emo: object that contains different evaluation metrics 
             to analyse the efficiency of the algorithm for classifying emotions.
             -  report_sen: object taht contains different evaluation metrics 
             to analyse the efficiency of the algorithm for classifying sentiments. 
