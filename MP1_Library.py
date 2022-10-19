@@ -62,7 +62,7 @@ class MP1:
             raise TypeError("You must inter either CV, TFIDF or WE")
     
     def __str__(self): 
-        X = MP1.__feature_extraction(self)[0]
+        X = MP1.__feature_extraction_CV(self)[0]
         out = ""
         if self.type_vectorize == "CV":
             out += "You will use the CountVectorize method for making the posts numerical\n"
@@ -234,6 +234,7 @@ class MP1:
         return X_train_emo, X_test_emo, y_train_emo, y_test_emo, X_train_sen, X_test_sen, y_train_sen, y_test_sen, le_dict_emo, le_dict_sen
 
     def __feature_extraction_WE(self):
+        
         '''
         __feature_extraction_WE is a private method that preprocesses the data if type_vectorize='WE' was passed on init. The chosen model is
         loaded and the averaged embedding vectors are calculated based on the model passed as input.
@@ -316,7 +317,7 @@ class MP1:
         return:
             - conf_matrix_emo: confusion matrix for emotions.
             - conf_matrix_sen: confusion matrix for sentiments. 
-            - report_emo: object that contains different evaluation metrics 
+            - report_emo: object taht contains different evaluation metrics 
             to analyse the efficiency of the algorithm for classifying emotions.
             -  report_sen: object taht contains different evaluation metrics 
             to analyse the efficiency of the algorithm for classifying sentiments. 
@@ -522,8 +523,8 @@ class MP1:
             X_test_sen = copy.deepcopy(X_test_emo)
         
         # Create Neural Network classifer object
-        clf_MLP_emo = MLPClassifier(max_iter = 10)
-        clf_MLP_sen = MLPClassifier(max_iter = 10)
+        clf_MLP_emo = MLPClassifier(max_iter = 2)
+        clf_MLP_sen = MLPClassifier(max_iter = 2)
 
         clf_MLP_emo = clf_MLP_emo.fit(X_train_emo,y_train_emo)
         clf_MLP_sen = clf_MLP_sen.fit(X_train_sen,y_train_sen)
@@ -572,8 +573,8 @@ class MP1:
             X_test_sen = copy.deepcopy(X_test_emo)
             
         # Create Neural Network classifer object
-        clf_MLP_emo = MLPClassifier(max_iter = 10)
-        clf_MLP_sen = MLPClassifier(max_iter = 10)
+        clf_MLP_emo = MLPClassifier(max_iter = 2)
+        clf_MLP_sen = MLPClassifier(max_iter = 2)
 
         parameters = {'activation':['logistic', 'tanh', 'relu', 'identity'], 'solver':['adam', 'sgd'], 
                       'hidden_layer_sizes':[(30,50),(10,10,10)]}
@@ -608,7 +609,7 @@ class MP1:
         '''
 
         if self.type_vectorize == "CV":
-            le_dict_emo, le_dict_sen = MP1.__feature_extraction(self)[8:]
+            le_dict_emo, le_dict_sen = MP1.__feature_extraction_CV(self)[8:]
             print("Dictionnary of the correponding numbers and emotions: \n {} \n".format(le_dict_emo))
             print("Dictionnary of the correponding numbers and sentiments: \n {} \n".format(le_dict_sen))
         elif self.type_vectorize == "TFIDF":
@@ -626,7 +627,7 @@ class MP1:
         easier to read the values.
         '''
 
-        le_dict_emo, le_dict_sen = MP1.__feature_extraction(self)[8:]
+        le_dict_emo, le_dict_sen = MP1.__feature_extraction_CV(self)[8:]
         if np.shape(matrix)[0] == 28:
             mat_emo = pd.DataFrame(matrix, columns = le_dict_emo.keys(), index = le_dict_emo.keys())
             mat_emo.to_csv(output_name + "_conf_emo.csv")
