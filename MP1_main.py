@@ -17,7 +17,7 @@ download('punkt')
 with open('goemotions.json') as file:
     data = json.load(file)
 
-#Choose among thses models for the Word embeddings method:
+#Choose among these models for the Word embeddings method:
 #model = "word2vec-google-news-300"
 model = "word2vec-google-news-100"
 # model = "word2vec-google-news-25"
