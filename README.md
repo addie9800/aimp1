@@ -1,3 +1,4 @@
+https://github.com/addie9800/aimp1/
 # Mini-Project 1
 ## Emotion and Sentiment Classification of Reddit Posts
 The main goal of this project was to use different machine learning algorithms to classify emotions and sentiments of reddit posts. We used embeddings and word vectorization to represent the data and used the Multinomial Naive Bayes, Decision Tree and Multilayer Perceptron algorithms. We produced reports which summarize the performance of each algorithm and data representation.
