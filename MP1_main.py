@@ -19,7 +19,7 @@ with open('goemotions.json') as file:
 
 #Choose among these models for the Word embeddings method:
 #model = "word2vec-google-news-300"
-model = "glove-twitter-100"
+model = "glove-twitter-25"
 # model = "glove-wiki-gigaword-200"
 
 type_vectorize = "TFIDF" # You can choose between "WE", "TFIDF" and "CV"
